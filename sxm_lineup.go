@@ -2,9 +2,12 @@ package siriusxm
 
 import (
 	"encoding/json"
+	"fmt"
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"net/http"
+	"reflect"
+	"strings"
 )
 
 type logos struct {
@@ -78,7 +81,7 @@ type lineup struct {
 	UpsellPackageID string
 }
 
-type channelResponse struct {
+type ChannelResponse struct {
 	LastModified string
 	Messages     messages
 	Status       int
@@ -92,18 +95,26 @@ type ChannelDetails struct {
 	ChannelKey      interface{}
 	ContentID       interface{}
 	DisplayName     string
+	Genre           string
+	Category        string
 }
 
 type ChannelLineup struct {
-	Channels []ChannelDetails
+	Channels     []ChannelDetails
 	LastModified string
 }
 
-func (lineup ChannelLineup) FindChannel(channel string) (ChannelDetails, error) {
+func (lineup ChannelLineup) FindChannel(channel interface{}) (ChannelDetails, error) {
 	var c ChannelDetails
-	var err error
+	var err error = nil
 	for _, v := range lineup.Channels {
-		if v.DisplayName == channel || v.ChannelKey == channel {
+		if reflect.TypeOf(v.ChannelKey).String() != "string" {
+			v.ChannelKey = fmt.Sprintf("%d", v.ChannelKey)
+		}
+		if strings.ToLower(v.Name) == strings.ToLower(channel.(string)) ||
+			strings.ToLower(v.ChannelKey.(string)) == strings.ToLower(channel.(string)) ||
+			v.SiriusChannelNo == channel ||
+			v.XMChannelNo == channel {
 			c = v
 			break
 		}
@@ -116,12 +127,33 @@ func (lineup ChannelLineup) FindChannel(channel string) (ChannelDetails, error) 
 	return c, err
 }
 
-func GetChannelLineup () ChannelLineup {
-	var response channelResponse
+func (lineup ChannelLineup) FindChannelByNumber(channel int) (ChannelDetails, error) {
+	var c ChannelDetails
+	var err error = nil
+	for _, v := range lineup.Channels {
+		if v.SiriusChannelNo == channel {
+			c = v
+			break
+		}
+	}
+
+	if c.ChannelKey == nil {
+		err = errors.New("Could not find key by name")
+	}
+
+	return c, err
+}
+
+func GetChannelLineup() (ChannelLineup, ChannelResponse, error) {
+	var response ChannelResponse
 	var lineup ChannelLineup
 	resp, err := http.Get("https://www.siriusxm.com/userservices/cl/en-us/json/lineup/350/client/ump")
 
 	if err != nil {
+		fmt.Println(err)
+		if resp == nil {
+			return lineup, response, err
+		}
 
 	}
 	defer resp.Body.Close()
@@ -134,10 +166,10 @@ func GetChannelLineup () ChannelLineup {
 
 	json.Unmarshal(skipRoot(body), &response)
 	lineup = response.createLineup()
-	return lineup
+	return lineup, response, err
 }
 
-func (response channelResponse) createLineup() ChannelLineup {
+func (response ChannelResponse) createLineup() ChannelLineup {
 	var lineup ChannelLineup
 	lineup.LastModified = response.LastModified
 
@@ -145,13 +177,15 @@ func (response channelResponse) createLineup() ChannelLineup {
 	for _, cat := range response.Lineup.Categories {
 		for _, genre := range cat.Genres {
 			for _, channel := range genre.Channels {
-				lineup.Channels = append (lineup.Channels, ChannelDetails{
-					Name: channel.Name,
-					XMChannelNo: channel.XMChannelNo,
+				lineup.Channels = append(lineup.Channels, ChannelDetails{
+					Name:            channel.Name,
+					XMChannelNo:     channel.XMChannelNo,
 					SiriusChannelNo: channel.SiriusChannelNo,
-					ChannelKey: channel.ChannelKey,
-					ContentID: channel.ContentID,
-					DisplayName: channel.DisplayName})
+					ChannelKey:      channel.ChannelKey,
+					ContentID:       channel.ContentID,
+					DisplayName:     channel.DisplayName,
+					Genre:           genre.Name,
+					Category:        cat.Name})
 			}
 		}
 	}

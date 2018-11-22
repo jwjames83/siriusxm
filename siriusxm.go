@@ -4,6 +4,12 @@ import (
 	"encoding/json"
 )
 
+func checkErr(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
 func skipRoot(jsonBlob []byte) json.RawMessage {
 	var root map[string]json.RawMessage
 
