@@ -3,7 +3,7 @@
 This little library can retrieve the currently playing song information with a provided station. All you need to do is
 get the channel you want
 
-```go
+``` go
 package main
 
 import (
