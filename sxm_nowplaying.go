@@ -47,7 +47,7 @@ type currentEvent struct {
 }
 
 type metaData struct {
-	ChannelId     string
+	ChannelId     interface{}
 	ChannelName   string
 	ChannelNumber int
 	CurrentEvent  currentEvent
@@ -68,7 +68,7 @@ type channelMetadataResponseArr struct {
 }
 
 type NowPlaying struct {
-	ChannelId     string
+	ChannelId     interface{}
 	ChannelNumber int
 	ChannelName   string
 	Song          string
